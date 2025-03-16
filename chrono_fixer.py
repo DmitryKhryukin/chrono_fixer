@@ -29,21 +29,21 @@ def is_exiftool_installed():
 if not is_exiftool_installed():
     raise EnvironmentError("ExifTool is not installed or not in PATH.")
 
-def process_file(filename):
-    if filename in {UPDATED_DIR_NAME, NOT_UPDATED_DIR_NAME}:
+def process_file(file_path):
+    if any(dir_name in file_path for dir_name in [UPDATED_DIR_NAME, NOT_UPDATED_DIR_NAME]):
         return
 
-    source_file = os.path.join(SOURCE_DIR, filename)
-    if not os.path.isfile(source_file):
+    if not os.path.isfile(file_path):
         return
 
     result = subprocess.run(
-        ['exiftool', '-overwrite_original', '-FileCreateDate<DateTimeOriginal', '-FileModifyDate<DateTimeOriginal', source_file],
+        ['exiftool', '-overwrite_original', '-FileCreateDate<DateTimeOriginal', '-FileModifyDate<DateTimeOriginal', file_path],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True
     )
 
+    filename = os.path.basename(file_path)
     if result.returncode != 0:
         logging.error(f"Error processing {filename}: {result.stderr}")
         destination_dir = NOT_UPDATED_DIR
@@ -54,9 +54,16 @@ def process_file(filename):
         logging.info(f'No DateTimeOriginal found (moved to {NOT_UPDATED_DIR_NAME}): {filename}')
         destination_dir = NOT_UPDATED_DIR
 
-    shutil.move(source_file, os.path.join(destination_dir, filename))
+    shutil.move(file_path, os.path.join(destination_dir, filename))
 
+def get_all_files(directory):
+    for root, dirs, files in os.walk(directory):
+        dirs[:] = [d for d in dirs if d not in [UPDATED_DIR_NAME, NOT_UPDATED_DIR_NAME]]
+        for file in files:
+            yield os.path.join(root, file)
+
+all_files = list(get_all_files(SOURCE_DIR))
 with ThreadPoolExecutor() as executor:
-    executor.map(process_file, os.listdir(SOURCE_DIR))
+    executor.map(process_file, all_files)
 
 logging.info('Processing complete.')
