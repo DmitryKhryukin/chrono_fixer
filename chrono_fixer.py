@@ -4,6 +4,7 @@ import subprocess
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
+import multiprocessing
 
 SOURCE_DIR = os.path.abspath('/your/folder')
 UPDATED_DIR_NAME = 'updated'
@@ -11,6 +12,9 @@ NOT_UPDATED_DIR_NAME = '_not_updated'
 UPDATED_DIR = os.path.join(SOURCE_DIR, UPDATED_DIR_NAME)
 NOT_UPDATED_DIR = os.path.join(SOURCE_DIR, NOT_UPDATED_DIR_NAME)
 LOG_FILE = 'logs_chrono_fixer.log'
+
+# --- we don't want to use all our cpu's ---
+MAX_WORKERS = max(1, multiprocessing.cpu_count() // 2)
 
 file_handler = logging.FileHandler(LOG_FILE)
 console_handler = logging.StreamHandler()
@@ -49,10 +53,8 @@ def process_file(file_path):
         logging.error(f"Error processing {filename}: {result.stderr}")
         destination_dir = NOT_UPDATED_DIR
     elif '1 image files updated' in result.stdout:
-        logging.info(f'Updated and moved: {filename}')
         destination_dir = UPDATED_DIR
     else:
-        logging.info(f'No DateTimeOriginal found (moved to {NOT_UPDATED_DIR_NAME}): {filename}')
         destination_dir = NOT_UPDATED_DIR
 
     shutil.move(file_path, os.path.join(destination_dir, filename))
@@ -63,10 +65,15 @@ def get_all_files(directory):
         for file in files:
             yield os.path.join(root, file)
 
-all_files = list(get_all_files(SOURCE_DIR))
-with ThreadPoolExecutor() as executor:
-    futures = [executor.submit(process_file, file_path) for file_path in all_files]
-    for _ in tqdm(as_completed(futures), total=len(futures), desc="Processing Files"):
-        pass
-
-logging.info('Processing complete.')
+try:
+    all_files = list(get_all_files(SOURCE_DIR))
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = [executor.submit(process_file, file_path) for file_path in all_files]
+        for _ in tqdm(as_completed(futures), total=len(futures), desc="Processing Files"):
+            pass
+except KeyboardInterrupt:
+    logging.info("Processing interrupted by user. Exiting gracefully...")
+except Exception as e:
+    logging.error(f"An unexpected error occurred: {e}")
+finally:
+    logging.info('Processing complete.')
