@@ -2,7 +2,8 @@ import os
 import shutil
 import subprocess
 import logging
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
 
 SOURCE_DIR = os.path.abspath('/your/folder')
 UPDATED_DIR_NAME = 'updated'
@@ -64,6 +65,8 @@ def get_all_files(directory):
 
 all_files = list(get_all_files(SOURCE_DIR))
 with ThreadPoolExecutor() as executor:
-    executor.map(process_file, all_files)
+    futures = [executor.submit(process_file, file_path) for file_path in all_files]
+    for _ in tqdm(as_completed(futures), total=len(futures), desc="Processing Files"):
+        pass
 
 logging.info('Processing complete.')
