@@ -7,6 +7,7 @@ import multiprocessing
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 from tkinter import Tk, filedialog, messagebox
+from datetime import datetime
 
 UPDATED_DIR_PREFIX = '_updated'
 LOG_FILE = 'logs_chrono_fixer.log'
@@ -90,8 +91,9 @@ def get_all_files(directory):
 
 def build_updated_path(source_dir, file_path):
     relative_path = os.path.relpath(file_path, source_dir)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     updated_root = os.path.join(os.path.dirname(source_dir), f"{UPDATED_DIR_PREFIX}_{os.path.basename(source_dir)}")
-    updated_file_path = os.path.join(updated_root, UPDATED_DIR_PREFIX + '_' + relative_path)
+    updated_file_path = os.path.join(updated_root, f"{UPDATED_DIR_PREFIX}_{timestamp}_{relative_path}")
     return updated_file_path
 
 try:
