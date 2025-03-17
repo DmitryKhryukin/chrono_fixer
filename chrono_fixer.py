@@ -104,13 +104,16 @@ try:
 
     all_files = list(get_all_files(SOURCE_DIR))
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = []
-        for file_path in all_files:
-            updated_file_path = build_updated_path(SOURCE_DIR, file_path)
-            futures.append(executor.submit(process_file, file_path, updated_file_path))
+        futures = {executor.submit(process_file, file_path, build_updated_path(SOURCE_DIR, file_path)): file_path for file_path in all_files}
 
-        for _ in tqdm(as_completed(futures), total=len(futures), desc="Processing Files"):
-            pass
+        with tqdm(total=len(futures), desc="Processing Files") as pbar:
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    logging.error(f"Error processing file {futures[future]}: {e}")
+                finally:
+                    pbar.update(1)
 except KeyboardInterrupt:
     logging.info("Processing interrupted by user. Exiting gracefully...")
 except Exception as e:
