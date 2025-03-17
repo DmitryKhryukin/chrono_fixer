@@ -2,15 +2,17 @@ import os
 import shutil
 import subprocess
 import logging
+import sys
+import multiprocessing
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
-import multiprocessing
+from tkinter import Tk, filedialog, messagebox
 
-SOURCE_DIR = os.path.abspath('/your/folder')
+
 UPDATED_DIR_NAME = '_updated'
 LOG_FILE = 'logs_chrono_fixer.log'
 
-# --- we don't want to use all our cpu's ---
+# --- we don't want to use all our CPU's ---
 MAX_WORKERS = max(1, multiprocessing.cpu_count() // 2)
 
 file_handler = logging.FileHandler(LOG_FILE)
@@ -20,6 +22,17 @@ file_handler.setFormatter(formatter)
 console_handler.setFormatter(formatter)
 
 logging.basicConfig(level=logging.INFO, handlers=[file_handler, console_handler])
+
+def select_source_directory():
+    root = Tk()
+    root.withdraw()
+    selected_dir = filedialog.askdirectory(title="Select Source Directory")
+    if not selected_dir:
+        root.destroy()
+        return None
+    confirm = messagebox.askyesno("Confirmation", f"Do you want to process the selected directory?\n\n{selected_dir}")
+    root.destroy()
+    return selected_dir if confirm else None
 
 def is_exiftool_installed():
     result = subprocess.run(['which', 'exiftool'], stdout=subprocess.PIPE)
@@ -60,6 +73,11 @@ def prepare_dirs(root):
     return updated_dir
 
 try:
+    SOURCE_DIR = select_source_directory()
+    if not SOURCE_DIR:
+        logging.info("No directory selected. Exiting.")
+        sys.exit()
+
     all_files = list(get_all_files(SOURCE_DIR))
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = []
@@ -67,7 +85,7 @@ try:
             root = os.path.dirname(file_path)
             updated_dir = prepare_dirs(root)
             futures.append(executor.submit(process_file, file_path, updated_dir))
-        
+
         for _ in tqdm(as_completed(futures), total=len(futures), desc="Processing Files"):
             pass
 except KeyboardInterrupt:
