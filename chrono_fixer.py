@@ -48,8 +48,16 @@ def process_file(file_path, updated_dir):
     if not os.path.isfile(file_path):
         return
 
+    extension = os.path.splitext(file_path)[1].lower()
+    if extension in ['.jpg', '.jpeg', '.png']:  # images
+        command = ['exiftool', '-overwrite_original', '-FileCreateDate<DateTimeOriginal', '-FileModifyDate<DateTimeOriginal', file_path]
+    elif extension in ['.mp4', '.mov', '.avi', '.mkv']:  # videos
+        command = ['exiftool', '-overwrite_original', '-FileModifyDate<MediaCreateDate', '-FileModifyDate<MediaCreateDate', file_path]
+    else:
+        return
+
     result = subprocess.run(
-        ['exiftool', '-overwrite_original', '-FileCreateDate<DateTimeOriginal', '-FileModifyDate<DateTimeOriginal', file_path],
+        command,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True
@@ -58,7 +66,7 @@ def process_file(file_path, updated_dir):
     filename = os.path.basename(file_path)
     if result.returncode != 0:
         logging.error(f"Error processing {filename}: {result.stderr}")
-    elif '1 image files updated' in result.stdout:
+    elif '1 image files updated' in result.stdout or '1 video files updated' in result.stdout:
         shutil.move(file_path, os.path.join(updated_dir, filename))
 
 def get_all_files(directory):
