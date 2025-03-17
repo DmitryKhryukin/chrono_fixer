@@ -7,10 +7,7 @@ from tqdm import tqdm
 import multiprocessing
 
 SOURCE_DIR = os.path.abspath('/your/folder')
-UPDATED_DIR_NAME = 'updated'
-NOT_UPDATED_DIR_NAME = '_not_updated'
-UPDATED_DIR = os.path.join(SOURCE_DIR, UPDATED_DIR_NAME)
-NOT_UPDATED_DIR = os.path.join(SOURCE_DIR, NOT_UPDATED_DIR_NAME)
+UPDATED_DIR_NAME = '_updated'
 LOG_FILE = 'logs_chrono_fixer.log'
 
 # --- we don't want to use all our cpu's ---
@@ -24,9 +21,6 @@ console_handler.setFormatter(formatter)
 
 logging.basicConfig(level=logging.INFO, handlers=[file_handler, console_handler])
 
-os.makedirs(UPDATED_DIR, exist_ok=True)
-os.makedirs(NOT_UPDATED_DIR, exist_ok=True)
-
 def is_exiftool_installed():
     result = subprocess.run(['which', 'exiftool'], stdout=subprocess.PIPE)
     return bool(result.stdout.strip())
@@ -34,8 +28,8 @@ def is_exiftool_installed():
 if not is_exiftool_installed():
     raise EnvironmentError("ExifTool is not installed or not in PATH.")
 
-def process_file(file_path):
-    if any(dir_name in file_path for dir_name in [UPDATED_DIR_NAME, NOT_UPDATED_DIR_NAME]):
+def process_file(file_path, updated_dir):
+    if UPDATED_DIR_NAME in file_path:
         return
 
     if not os.path.isfile(file_path):
@@ -51,24 +45,29 @@ def process_file(file_path):
     filename = os.path.basename(file_path)
     if result.returncode != 0:
         logging.error(f"Error processing {filename}: {result.stderr}")
-        destination_dir = NOT_UPDATED_DIR
     elif '1 image files updated' in result.stdout:
-        destination_dir = UPDATED_DIR
-    else:
-        destination_dir = NOT_UPDATED_DIR
-
-    shutil.move(file_path, os.path.join(destination_dir, filename))
+        shutil.move(file_path, os.path.join(updated_dir, filename))
 
 def get_all_files(directory):
     for root, dirs, files in os.walk(directory):
-        dirs[:] = [d for d in dirs if d not in [UPDATED_DIR_NAME, NOT_UPDATED_DIR_NAME]]
+        dirs[:] = [d for d in dirs if d != UPDATED_DIR_NAME]
         for file in files:
             yield os.path.join(root, file)
+
+def prepare_dirs(root):
+    updated_dir = os.path.join(root, UPDATED_DIR_NAME)
+    os.makedirs(updated_dir, exist_ok=True)
+    return updated_dir
 
 try:
     all_files = list(get_all_files(SOURCE_DIR))
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = [executor.submit(process_file, file_path) for file_path in all_files]
+        futures = []
+        for file_path in all_files:
+            root = os.path.dirname(file_path)
+            updated_dir = prepare_dirs(root)
+            futures.append(executor.submit(process_file, file_path, updated_dir))
+        
         for _ in tqdm(as_completed(futures), total=len(futures), desc="Processing Files"):
             pass
 except KeyboardInterrupt:
