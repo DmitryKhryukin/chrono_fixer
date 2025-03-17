@@ -49,8 +49,7 @@ def select_source_directory():
     return selected_dir
 
 def is_exiftool_installed():
-    result = subprocess.run(['which', 'exiftool'], stdout=subprocess.PIPE)
-    return bool(result.stdout.strip())
+    return shutil.which('exiftool') is not None
 
 if not is_exiftool_installed():
     raise EnvironmentError("ExifTool is not installed or not in PATH.")
