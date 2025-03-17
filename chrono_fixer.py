@@ -27,11 +27,14 @@ def select_source_directory():
     root = Tk()
     root.withdraw()
     selected_dir = filedialog.askdirectory(title="Select Source Directory")
-    if not selected_dir:
-        root.destroy()
-        return None
-    confirm = messagebox.askyesno("Confirmation", f"Do you want to process the selected directory?\n\n{selected_dir}")
     root.destroy()
+    if not selected_dir:
+        return None
+
+    confirm_root = Tk()
+    confirm_root.withdraw()
+    confirm = messagebox.askyesno("Confirmation", f"Do you want to process the selected directory?\n\n{selected_dir}")
+    confirm_root.destroy()
     return selected_dir if confirm else None
 
 def is_exiftool_installed():
