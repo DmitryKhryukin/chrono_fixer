@@ -8,8 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 from tkinter import Tk, filedialog, messagebox
 
-
-UPDATED_DIR_NAME = '_updated'
+UPDATED_DIR_PREFIX = '_updated'
 LOG_FILE = 'logs_chrono_fixer.log'
 
 # --- we don't want to use all our CPU's ---
@@ -44,8 +43,8 @@ def is_exiftool_installed():
 if not is_exiftool_installed():
     raise EnvironmentError("ExifTool is not installed or not in PATH.")
 
-def process_file(file_path, updated_dir):
-    if UPDATED_DIR_NAME in file_path:
+def process_file(file_path, updated_file_path):
+    if UPDATED_DIR_PREFIX in file_path:
         return
 
     if not os.path.isfile(file_path):
@@ -55,7 +54,7 @@ def process_file(file_path, updated_dir):
     if extension in ['.jpg', '.jpeg', '.png']:  # images
         command = ['exiftool', '-overwrite_original', '-FileCreateDate<DateTimeOriginal', '-FileModifyDate<DateTimeOriginal', file_path]
     elif extension in ['.mp4', '.mov', '.avi', '.mkv']:  # videos
-        command = ['exiftool', '-overwrite_original', '-FileModifyDate<MediaCreateDate', '-FileModifyDate<MediaCreateDate', file_path]
+        command = ['exiftool', '-overwrite_original', '-FileModifyDate<MediaCreateDate', file_path]
     else:
         return
 
@@ -66,22 +65,23 @@ def process_file(file_path, updated_dir):
         text=True
     )
 
-    filename = os.path.basename(file_path)
     if result.returncode != 0:
-        logging.error(f"Error processing {filename}: {result.stderr}")
+        logging.error(f"Error processing {file_path}: {result.stderr}")
     elif '1 image files updated' in result.stdout or '1 video files updated' in result.stdout:
-        shutil.move(file_path, os.path.join(updated_dir, filename))
+        os.makedirs(os.path.dirname(updated_file_path), exist_ok=True)
+        shutil.move(file_path, updated_file_path)
 
 def get_all_files(directory):
     for root, dirs, files in os.walk(directory):
-        dirs[:] = [d for d in dirs if d != UPDATED_DIR_NAME]
+        dirs[:] = [d for d in dirs if not d.startswith(UPDATED_DIR_PREFIX)]
         for file in files:
             yield os.path.join(root, file)
 
-def prepare_dirs(root):
-    updated_dir = os.path.join(root, UPDATED_DIR_NAME)
-    os.makedirs(updated_dir, exist_ok=True)
-    return updated_dir
+def build_updated_path(source_dir, file_path):
+    relative_path = os.path.relpath(file_path, source_dir)
+    updated_root = os.path.join(os.path.dirname(source_dir), f"{UPDATED_DIR_PREFIX}_{os.path.basename(source_dir)}")
+    updated_file_path = os.path.join(updated_root, UPDATED_DIR_PREFIX + '_' + relative_path)
+    return updated_file_path
 
 try:
     SOURCE_DIR = select_source_directory()
@@ -93,9 +93,8 @@ try:
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = []
         for file_path in all_files:
-            root = os.path.dirname(file_path)
-            updated_dir = prepare_dirs(root)
-            futures.append(executor.submit(process_file, file_path, updated_dir))
+            updated_file_path = build_updated_path(SOURCE_DIR, file_path)
+            futures.append(executor.submit(process_file, file_path, updated_file_path))
 
         for _ in tqdm(as_completed(futures), total=len(futures), desc="Processing Files"):
             pass
