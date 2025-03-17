@@ -12,7 +12,7 @@ UPDATED_DIR_PREFIX = '_updated'
 LOG_FILE = 'logs_chrono_fixer.log'
 
 # --- we don't want to use all our CPU's ---
-MAX_WORKERS = max(1, multiprocessing.cpu_count() // 2)
+MAX_WORKERS = max(1, multiprocessing.cpu_count() // 4)
 
 file_handler = logging.FileHandler(LOG_FILE)
 console_handler = logging.StreamHandler()
