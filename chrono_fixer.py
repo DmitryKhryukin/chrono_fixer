@@ -62,7 +62,7 @@ def process_file(file_path, updated_file_path):
         return
 
     extension = os.path.splitext(file_path)[1].lower()
-    if extension in ['.jpg', '.jpeg', '.png']:  # images
+    if extension in ['.jpg', '.jpeg', '.png', '.heic']:  # images
         command = ['exiftool', '-overwrite_original', '-FileCreateDate<DateTimeOriginal', '-FileModifyDate<DateTimeOriginal', file_path]
     elif extension in ['.mp4', '.mov', '.avi', '.mkv']:  # videos
         command = ['exiftool', '-overwrite_original', '-FileModifyDate<MediaCreateDate', file_path]
