@@ -6,7 +6,7 @@ import sys
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
-from tkinter import Tk, filedialog, messagebox
+from tkinter import Tk, filedialog
 from datetime import datetime
 
 UPDATED_DIR_PREFIX = '_updated'
@@ -26,27 +26,10 @@ logging.basicConfig(level=logging.INFO, handlers=[file_handler, console_handler]
 def select_source_directory():
     root = Tk()
     root.withdraw()
+    root.update_idletasks()
     selected_dir = filedialog.askdirectory(title="Select Source Directory")
     root.destroy()
-
-    if not selected_dir:
-        return None
-
-    def show_confirmation():
-        confirm = messagebox.askyesno("Confirmation", f"Do you want to process the selected directory?\n\n{selected_dir}")
-        if confirm:
-            root.quit()
-        else:
-            root.destroy()
-            sys.exit()
-
-    root = Tk()
-    root.withdraw()
-    root.after(0, show_confirmation)
-    root.mainloop()
-    root.destroy()  # Ensure the Tk instance is destroyed after mainloop
-
-    return selected_dir
+    return selected_dir if selected_dir else None
 
 def is_exiftool_installed():
     return shutil.which('exiftool') is not None
